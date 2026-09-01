@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wellfound Auto-Answer (Ollama)
 // @namespace    eeshsaxena.local
-// @version      1.3.0
+// @version      1.4.0
 // @description  Draft answers to Wellfound job-application questions with a local or cloud LLM. Fills fields for review; never auto-submits.
 // @author       Eesh
 // @updateURL    https://raw.githubusercontent.com/eeshsaxena/wellfound-autoanswer/master/wellfound-autoanswer.user.js
@@ -163,6 +163,10 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     return q;
   }
 
+  // profile/contact/location fields and validation noise that must never be answered
+  const SKIP_META = /name|email|phone|url|linkedin|github|portfolio|website|location|city|salary|search|resume|cv|autocomplete/i;
+  const SKIP_TEXT = /too broad|more specific location|primary location|is too broad|update to a more specific/i;
+
   function findFields() {
     const out = [];
     const els = document.querySelectorAll('textarea, input[type="text"], input:not([type])');
@@ -173,14 +177,19 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
       if (style.display === 'none' || style.visibility === 'hidden') return;
       if (!el.offsetParent && style.position !== 'fixed') return;
       const q = labelFor(el);
-      // skip obvious non-question fields
-      if (/name|email|phone|url|linkedin|github|portfolio|website|location|city|salary|search/i.test(
-            (el.name || '') + ' ' + (el.id || '') + ' ' + (el.placeholder || '')))
-        {
-          // still allow if it clearly ends in a question mark
-          if (!/\?\s*$/.test(q)) return;
-        }
-      if (el.tagName !== 'TEXTAREA' && q.length < 12) return; // short inputs need a real question
+      // never answer location/profile validation fields
+      if (SKIP_TEXT.test(q)) return;
+      const meta = (el.name || '') + ' ' + (el.id || '') + ' ' + (el.placeholder || '') + ' ' +
+                   (el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('role') || '');
+      const isQ = /\?\s*$/.test(q);
+      if (SKIP_META.test(meta) && !isQ) return;
+      if (el.tagName === 'TEXTAREA') {
+        // textareas are the real free-text questions; just need some label
+        if (q.length < 5) return;
+      } else {
+        // a plain input only counts as a question if the label clearly IS one
+        if (!isQ || q.length < 8) return;
+      }
       out.push({ el, q });
     });
     return out;
@@ -353,20 +362,34 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
   }
 
   /* ------------------------- find & confirm the Submit --------------------- */
+  // On Wellfound the application's submit button is usually labelled "Apply" (or
+  // "Submit application"). Search the form containing the questions first, so we don't
+  // grab an "Apply" button from a job list elsewhere on the page.
   function findSubmit() {
-    const cands = document.querySelectorAll('button, [role="button"], input[type="submit"], a[href]');
-    const exact = /^(submit( application| answers?)?|send application|apply now)$/i;
-    let loose = null;
-    for (const b of cands) {
-      if (b.closest('#waa-panel')) continue;
-      if (!b.offsetParent) continue;
-      if (b.disabled) continue;
-      const t = ((b.innerText || b.value || '')).replace(/\s+/g, ' ').trim();
-      if (!t || t.length > 30) continue;
-      if (exact.test(t)) return b;
-      if (!loose && /\bsubmit\b/i.test(t)) loose = b;
+    const exact = /^(submit( application| answers?)?|send application|apply now|apply|submit)$/i;
+    const pick = (root) => {
+      let loose = null;
+      for (const b of root.querySelectorAll('button, [role="button"], input[type="submit"], input[type="button"]')) {
+        if (b.closest('#waa-panel')) continue;
+        if (!b.offsetParent || b.disabled) continue;
+        const t = ((b.innerText || b.value || '')).replace(/\s+/g, ' ').trim();
+        if (!t || t.length > 24) continue;
+        if (/apply on wellfound|save/i.test(t)) continue; // openers / save, not submit
+        if (exact.test(t)) return b;
+        if (!loose && /\b(submit|apply)\b/i.test(t)) loose = b;
+      }
+      return loose;
+    };
+    // scope to the form/container around the question fields
+    const fields = findFields();
+    if (fields.length) {
+      const f = fields[fields.length - 1].el;
+      let scope = f.closest('form');
+      if (!scope) { scope = f; for (let i = 0; i < 4 && scope.parentElement; i++) scope = scope.parentElement; }
+      const near = pick(scope);
+      if (near) return near;
     }
-    return loose;
+    return pick(document);
   }
 
   function offerSubmit() {
@@ -403,10 +426,11 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     });
   }
 
-  // Find the "Apply" button that opens the application form (not the final Submit).
+  // Find the button that OPENS the application form. Deliberately excludes a bare
+  // "Apply" (that's usually the final submit) to avoid submitting an empty form.
   function findApply() {
     const cands = document.querySelectorAll('button, [role="button"], a[href]');
-    const rx = /^(apply on wellfound|apply now|apply)$/i;
+    const rx = /^(apply on wellfound|apply now)$/i;
     for (const b of cands) {
       if (b.closest('#waa-panel')) continue;
       if (!b.offsetParent || b.disabled) continue;
