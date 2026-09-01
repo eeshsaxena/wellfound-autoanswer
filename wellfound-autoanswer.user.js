@@ -13,6 +13,7 @@
 // @connect      localhost
 // @connect      127.0.0.1
 // @connect      api.openai.com
+// @connect      generativelanguage.googleapis.com
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -57,12 +58,13 @@ LeetCode: Guardian (1873), Top 5% in World; Global Rank 75 in Weekly Contest 446
 Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
 
   /* ----------------------------- config store ----------------------------- */
+  const DEFAULT_MODELS = { ollama: 'llama3.1', openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash' };
   const CFG = {
     get resume()   { return GM_getValue('waa_resume', DEFAULT_RESUME); },
     set resume(v)  { GM_setValue('waa_resume', v); },
     get provider() { return GM_getValue('waa_provider', 'ollama'); },
     set provider(v){ GM_setValue('waa_provider', v); },
-    get model()    { return GM_getValue('waa_model', this.provider === 'openai' ? 'gpt-4o-mini' : 'llama3.1'); },
+    get model()    { return GM_getValue('waa_model', DEFAULT_MODELS[this.provider] || 'llama3.1'); },
     set model(v)   { GM_setValue('waa_model', v); },
     get apikey()   { return GM_getValue('waa_apikey', ''); },
     set apikey(v)  { GM_setValue('waa_apikey', v); },
@@ -227,8 +229,44 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     });
   }
 
+  function geminiAnswer(question) {
+    if (!CFG.apikey.trim()) return Promise.reject(new Error('Add your Gemini API key in settings.'));
+    const body = JSON.stringify({
+      system_instruction: { parts: [{ text: buildSystem() }] },
+      contents: [{ role: 'user', parts: [{ text: `Question: ${question}` }] }],
+      generationConfig: { temperature: 0.6 },
+    });
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method: 'POST',
+        // key goes in a header, never in the URL
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(CFG.model)}:generateContent`,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': CFG.apikey.trim() },
+        data: body,
+        timeout: 120000,
+        onload: (r) => {
+          if (r.status < 200 || r.status >= 300) {
+            let msg = r.responseText.slice(0, 250);
+            try { msg = JSON.parse(r.responseText).error.message || msg; } catch (e) {}
+            return reject(new Error(`Gemini HTTP ${r.status}: ${msg}`));
+          }
+          try {
+            const j = JSON.parse(r.responseText);
+            const c = j.candidates && j.candidates[0];
+            const txt = (c && c.content && c.content.parts || []).map(p => p.text || '').join('').trim();
+            if (!txt) return reject(new Error('Empty response from Gemini (check model name).'));
+            resolve(txt);
+          } catch (e) { reject(new Error('Bad JSON from Gemini: ' + e.message)); }
+        },
+        onerror: () => reject(new Error('Cannot reach Gemini (network/key issue).')),
+        ontimeout: () => reject(new Error('Gemini request timed out; try again.')),
+      });
+    });
+  }
+
   function ollamaAnswer(question) {
     if (CFG.provider === 'openai') return openaiAnswer(question);
+    if (CFG.provider === 'gemini') return geminiAnswer(question);
     const sys = buildSystem();
 
     const body = JSON.stringify({
@@ -360,8 +398,11 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
 
   function applyProviderUI() {
     const p = panel.querySelector('#waa-provider').value;
-    panel.querySelector('#waa-ollama-row').style.display = p === 'openai' ? 'none' : '';
-    panel.querySelector('#waa-openai-row').style.display = p === 'openai' ? '' : 'none';
+    panel.querySelector('#waa-ollama-row').style.display = p === 'ollama' ? '' : 'none';
+    panel.querySelector('#waa-key-row').style.display = p === 'ollama' ? 'none' : '';
+    const label = { gemini: 'Gemini API key', openai: 'OpenAI API key' }[p] || 'API key';
+    panel.querySelector('#waa-key-label').textContent = label + ' (stored locally, never committed)';
+    panel.querySelector('#waa-apikey').placeholder = p === 'gemini' ? 'AIza...' : 'sk-...';
   }
 
   function refreshPanel() {
@@ -375,10 +416,10 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     panel.querySelector('#waa-autorun').checked = CFG.autorun;
     applyProviderUI();
     const dot = panel.querySelector('.waa-dot');
-    if (CFG.provider === 'openai') {
+    if (CFG.provider !== 'ollama') {
       const ok = !!CFG.apikey.trim();
       dot.className = 'waa-dot ' + (ok ? 'ok' : 'bad');
-      dot.title = ok ? 'OpenAI key set' : 'No OpenAI key';
+      dot.title = ok ? 'API key set' : 'No API key';
     } else {
       pingOllama().then(ok => {
         dot.className = 'waa-dot ' + (ok ? 'ok' : 'bad');
@@ -403,6 +444,7 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
           <div><label>Provider</label>
             <select id="waa-provider">
               <option value="ollama">Ollama (local, free)</option>
+              <option value="gemini">Gemini (free key)</option>
               <option value="openai">OpenAI (API key)</option>
             </select>
           </div>
@@ -410,8 +452,8 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
         </div>
         <div id="waa-ollama-row"><label>Ollama URL</label>
           <input id="waa-url" placeholder="http://localhost:11434"></div>
-        <div id="waa-openai-row"><label>OpenAI API key (stored locally, never committed)</label>
-          <input id="waa-apikey" type="password" placeholder="sk-..." autocomplete="off"></div>
+        <div id="waa-key-row"><label id="waa-key-label">API key (stored locally, never committed)</label>
+          <input id="waa-apikey" type="password" placeholder="paste key" autocomplete="off"></div>
         <label>~Words</label>
         <input id="waa-words" type="number" min="30" max="400">
         <label>Answer style</label>
@@ -432,15 +474,16 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     panel.querySelector('#waa-provider').onchange = (e) => {
       applyProviderUI();
       const cur = panel.querySelector('#waa-model').value.trim();
-      // suggest a sensible default model when switching provider and field is empty/mismatched
-      if (!cur || cur === 'llama3.1' || cur === 'gpt-4o-mini') {
-        panel.querySelector('#waa-model').value = e.target.value === 'openai' ? 'gpt-4o-mini' : 'llama3.1';
+      // suggest a sensible default model when switching provider and field is empty/a known default
+      const knownDefaults = Object.values(DEFAULT_MODELS);
+      if (!cur || knownDefaults.includes(cur)) {
+        panel.querySelector('#waa-model').value = DEFAULT_MODELS[e.target.value] || 'llama3.1';
       }
     };
     panel.querySelector('#waa-save').onclick = () => {
       CFG.resume   = panel.querySelector('#waa-resume').value;
       CFG.provider = panel.querySelector('#waa-provider').value;
-      CFG.model    = panel.querySelector('#waa-model').value.trim() || (CFG.provider === 'openai' ? 'gpt-4o-mini' : 'llama3.1');
+      CFG.model    = panel.querySelector('#waa-model').value.trim() || DEFAULT_MODELS[CFG.provider] || 'llama3.1';
       CFG.apikey   = panel.querySelector('#waa-apikey').value.trim();
       CFG.url    = panel.querySelector('#waa-url').value.trim() || 'http://localhost:11434';
       CFG.words  = parseInt(panel.querySelector('#waa-words').value) || 120;

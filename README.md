@@ -31,14 +31,22 @@ Then pick a provider in the panel:
    Then fully quit Ollama (system tray → Quit) and start it again.
 3. In the panel: Provider = **Ollama**, Model = `llama3.1`.
 
-### Option B — OpenAI (API key, no local install)
-1. Get a key at https://platform.openai.com/api-keys.
-2. In the panel: Provider = **OpenAI**, Model = `gpt-4o-mini` (cheap) or `gpt-4o`,
-   paste your key. The key is stored **locally in your browser** (`GM_setValue`) and is
-   **never committed to this repo** — it's typed into the panel, not the code.
+### Option B — Gemini (free API key, no local install)
+1. Get a free key at https://aistudio.google.com/app/apikey (no billing required).
+2. In the panel: Provider = **Gemini**, Model = `gemini-2.0-flash`, paste your key
+   (starts with `AIza...`), Save.
 
-> Note: OpenAI just removes the need to run Ollama locally. It does **not** let the script
-> run while your computer is off — the script only runs in your browser on the Wellfound page.
+### Option C — OpenAI (paid API key, no local install)
+1. Get a key at https://platform.openai.com/api-keys (requires billing).
+2. In the panel: Provider = **OpenAI**, Model = `gpt-4o-mini` (cheap) or `gpt-4o`, paste your key.
+
+> Any API key you paste is stored **locally in your browser** (`GM_setValue`) and is
+> **never committed to this repo** — it's typed into the panel, not the code. The key is
+> sent in a request header, never in a URL.
+>
+> Note: a cloud provider (Gemini/OpenAI) just removes the need to run Ollama locally. It does
+> **not** let the script run while your computer is off — the script only runs in your
+> browser on the Wellfound page.
 
 ## Use
 
