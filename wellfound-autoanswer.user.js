@@ -12,6 +12,7 @@
 // @grant        GM_addStyle
 // @connect      localhost
 // @connect      127.0.0.1
+// @connect      api.openai.com
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -59,8 +60,12 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
   const CFG = {
     get resume()   { return GM_getValue('waa_resume', DEFAULT_RESUME); },
     set resume(v)  { GM_setValue('waa_resume', v); },
-    get model()    { return GM_getValue('waa_model', 'llama3.1'); },
+    get provider() { return GM_getValue('waa_provider', 'ollama'); },
+    set provider(v){ GM_setValue('waa_provider', v); },
+    get model()    { return GM_getValue('waa_model', this.provider === 'openai' ? 'gpt-4o-mini' : 'llama3.1'); },
     set model(v)   { GM_setValue('waa_model', v); },
+    get apikey()   { return GM_getValue('waa_apikey', ''); },
+    set apikey(v)  { GM_setValue('waa_apikey', v); },
     get url()      { return GM_getValue('waa_url', 'http://localhost:11434'); },
     set url(v)     { GM_setValue('waa_url', v); },
     get words()    { return GM_getValue('waa_words', 120); },
@@ -175,16 +180,56 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     return out;
   }
 
-  /* ------------------------------- Ollama call ----------------------------- */
-  function ollamaAnswer(question) {
-    const sys =
-      `You are helping a job applicant answer an application question on Wellfound.\n` +
+  /* ------------------------------ model call ------------------------------- */
+  function buildSystem() {
+    return `You are helping a job applicant answer an application question on Wellfound.\n` +
       `Write the answer in the FIRST PERSON as the applicant, ready to paste into the form.\n` +
       `Style: ${CFG.tone}. Target about ${CFG.words} words (shorter is fine).\n` +
       `Only use facts supported by the applicant's background below. If a specific fact ` +
       `(dates, numbers, employer names) is not present, stay general rather than inventing it.\n` +
       `Do NOT include a greeting, sign-off, the question text, or quotation marks. Output only the answer.\n\n` +
       `APPLICANT BACKGROUND:\n${CFG.resume || '(none provided)'}`;
+  }
+
+  function openaiAnswer(question) {
+    if (!CFG.apikey.trim()) return Promise.reject(new Error('Add your OpenAI API key in settings.'));
+    const body = JSON.stringify({
+      model: CFG.model,
+      temperature: 0.6,
+      messages: [
+        { role: 'system', content: buildSystem() },
+        { role: 'user', content: `Question: ${question}` },
+      ],
+    });
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method: 'POST',
+        url: 'https://api.openai.com/v1/chat/completions',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CFG.apikey.trim() },
+        data: body,
+        timeout: 120000,
+        onload: (r) => {
+          if (r.status < 200 || r.status >= 300) {
+            let msg = r.responseText.slice(0, 200);
+            try { msg = JSON.parse(r.responseText).error.message || msg; } catch (e) {}
+            return reject(new Error(`OpenAI HTTP ${r.status}: ${msg}`));
+          }
+          try {
+            const j = JSON.parse(r.responseText);
+            const txt = (j.choices && j.choices[0] && j.choices[0].message.content || '').trim();
+            if (!txt) return reject(new Error('Empty response from OpenAI.'));
+            resolve(txt);
+          } catch (e) { reject(new Error('Bad JSON from OpenAI: ' + e.message)); }
+        },
+        onerror: () => reject(new Error('Cannot reach OpenAI (network/key issue).')),
+        ontimeout: () => reject(new Error('OpenAI request timed out; try again.')),
+      });
+    });
+  }
+
+  function ollamaAnswer(question) {
+    if (CFG.provider === 'openai') return openaiAnswer(question);
+    const sys = buildSystem();
 
     const body = JSON.stringify({
       model: CFG.model,
@@ -313,18 +358,33 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
   function openPanel()  { if (panel) { panel.style.display = 'block'; toggleBtn.style.display = 'none'; refreshPanel(); } }
   function closePanel() { if (panel) { panel.style.display = 'none';  toggleBtn.style.display = ''; } }
 
+  function applyProviderUI() {
+    const p = panel.querySelector('#waa-provider').value;
+    panel.querySelector('#waa-ollama-row').style.display = p === 'openai' ? 'none' : '';
+    panel.querySelector('#waa-openai-row').style.display = p === 'openai' ? '' : 'none';
+  }
+
   function refreshPanel() {
     panel.querySelector('#waa-resume').value = CFG.resume;
+    panel.querySelector('#waa-provider').value = CFG.provider;
     panel.querySelector('#waa-model').value = CFG.model;
+    panel.querySelector('#waa-apikey').value = CFG.apikey;
     panel.querySelector('#waa-url').value = CFG.url;
     panel.querySelector('#waa-words').value = CFG.words;
     panel.querySelector('#waa-tone').value = CFG.tone;
     panel.querySelector('#waa-autorun').checked = CFG.autorun;
-    pingOllama().then(ok => {
-      const dot = panel.querySelector('.waa-dot');
+    applyProviderUI();
+    const dot = panel.querySelector('.waa-dot');
+    if (CFG.provider === 'openai') {
+      const ok = !!CFG.apikey.trim();
       dot.className = 'waa-dot ' + (ok ? 'ok' : 'bad');
-      dot.title = ok ? 'Ollama reachable' : 'Ollama not reachable';
-    });
+      dot.title = ok ? 'OpenAI key set' : 'No OpenAI key';
+    } else {
+      pingOllama().then(ok => {
+        dot.className = 'waa-dot ' + (ok ? 'ok' : 'bad');
+        dot.title = ok ? 'Ollama reachable' : 'Ollama not reachable';
+      });
+    }
   }
 
   function buildPanel() {
@@ -340,11 +400,20 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
         <label>Your resume / background</label>
         <textarea id="waa-resume" placeholder="Paste your resume, skills, projects, why you're a fit… (stored locally in this browser)"></textarea>
         <div class="waa-row">
+          <div><label>Provider</label>
+            <select id="waa-provider">
+              <option value="ollama">Ollama (local, free)</option>
+              <option value="openai">OpenAI (API key)</option>
+            </select>
+          </div>
           <div><label>Model</label><input id="waa-model" placeholder="llama3.1"></div>
-          <div><label>~Words</label><input id="waa-words" type="number" min="30" max="400"></div>
         </div>
-        <label>Ollama URL</label>
-        <input id="waa-url" placeholder="http://localhost:11434">
+        <div id="waa-ollama-row"><label>Ollama URL</label>
+          <input id="waa-url" placeholder="http://localhost:11434"></div>
+        <div id="waa-openai-row"><label>OpenAI API key (stored locally, never committed)</label>
+          <input id="waa-apikey" type="password" placeholder="sk-..." autocomplete="off"></div>
+        <label>~Words</label>
+        <input id="waa-words" type="number" min="30" max="400">
         <label>Answer style</label>
         <input id="waa-tone">
         <label style="font-weight:600;display:flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer">
@@ -360,9 +429,19 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     document.body.appendChild(panel);
 
     panel.querySelector('#waa-close').onclick = closePanel;
+    panel.querySelector('#waa-provider').onchange = (e) => {
+      applyProviderUI();
+      const cur = panel.querySelector('#waa-model').value.trim();
+      // suggest a sensible default model when switching provider and field is empty/mismatched
+      if (!cur || cur === 'llama3.1' || cur === 'gpt-4o-mini') {
+        panel.querySelector('#waa-model').value = e.target.value === 'openai' ? 'gpt-4o-mini' : 'llama3.1';
+      }
+    };
     panel.querySelector('#waa-save').onclick = () => {
-      CFG.resume = panel.querySelector('#waa-resume').value;
-      CFG.model  = panel.querySelector('#waa-model').value.trim() || 'llama3.1';
+      CFG.resume   = panel.querySelector('#waa-resume').value;
+      CFG.provider = panel.querySelector('#waa-provider').value;
+      CFG.model    = panel.querySelector('#waa-model').value.trim() || (CFG.provider === 'openai' ? 'gpt-4o-mini' : 'llama3.1');
+      CFG.apikey   = panel.querySelector('#waa-apikey').value.trim();
       CFG.url    = panel.querySelector('#waa-url').value.trim() || 'http://localhost:11434';
       CFG.words  = parseInt(panel.querySelector('#waa-words').value) || 120;
       CFG.tone   = panel.querySelector('#waa-tone').value;

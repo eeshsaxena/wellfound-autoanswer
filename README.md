@@ -12,19 +12,33 @@ Ollama, so it's zero-friction and fully free. No API keys, no cloud, no per-answ
 
 ## Setup (one time)
 
-1. **Install Ollama** — https://ollama.com/download — then pull a model:
+**Install Tampermonkey** (Chrome/Edge/Firefox extension), then open
+`wellfound-autoanswer.user.js` — Tampermonkey will offer to install it. (Enable
+Developer Mode in the extension if it asks.)
+
+Then pick a provider in the panel:
+
+### Option A — Ollama (local, free)
+1. Install Ollama — https://ollama.com/download — then pull a model:
    ```bash
    ollama pull llama3.1
    ```
-2. **Let the browser reach Ollama.** The script calls `localhost:11434` from wellfound.com,
+2. Let the browser reach Ollama. The script calls `localhost:11434` from wellfound.com,
    so Ollama must allow that origin. On Windows (PowerShell):
    ```powershell
    setx OLLAMA_ORIGINS "*"
    ```
    Then fully quit Ollama (system tray → Quit) and start it again.
-3. **Install Tampermonkey** (Chrome/Edge/Firefox extension), then open
-   `wellfound-autoanswer.user.js` — Tampermonkey will offer to install it. (Enable
-   Developer Mode in the extension if it asks.)
+3. In the panel: Provider = **Ollama**, Model = `llama3.1`.
+
+### Option B — OpenAI (API key, no local install)
+1. Get a key at https://platform.openai.com/api-keys.
+2. In the panel: Provider = **OpenAI**, Model = `gpt-4o-mini` (cheap) or `gpt-4o`,
+   paste your key. The key is stored **locally in your browser** (`GM_setValue`) and is
+   **never committed to this repo** — it's typed into the panel, not the code.
+
+> Note: OpenAI just removes the need to run Ollama locally. It does **not** let the script
+> run while your computer is off — the script only runs in your browser on the Wellfound page.
 
 ## Use
 
