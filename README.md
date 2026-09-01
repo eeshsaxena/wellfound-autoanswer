@@ -33,7 +33,7 @@ Then pick a provider in the panel:
 
 ### Option B — Gemini (free API key, no local install)
 1. Get a free key at https://aistudio.google.com/app/apikey (no billing required).
-2. In the panel: Provider = **Gemini**, Model = `gemini-2.0-flash`, paste your key
+2. In the panel: Provider = **Gemini**, Model = `gemini-3.6-flash`, paste your key
    (starts with `AIza...`), Save.
 
 ### Option C — OpenAI (paid API key, no local install)

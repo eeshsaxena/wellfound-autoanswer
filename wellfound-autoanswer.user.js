@@ -58,7 +58,7 @@ LeetCode: Guardian (1873), Top 5% in World; Global Rank 75 in Weekly Contest 446
 Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
 
   /* ----------------------------- config store ----------------------------- */
-  const DEFAULT_MODELS = { ollama: 'llama3.1', openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash' };
+  const DEFAULT_MODELS = { ollama: 'llama3.1', openai: 'gpt-4o-mini', gemini: 'gemini-3.6-flash' };
   const CFG = {
     get resume()   { return GM_getValue('waa_resume', DEFAULT_RESUME); },
     set resume(v)  { GM_setValue('waa_resume', v); },
