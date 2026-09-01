@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wellfound Auto-Answer (Ollama)
 // @namespace    eeshsaxena.local
-// @version      1.1.0
+// @version      1.2.0
 // @description  Draft answers to Wellfound job-application questions with a local or cloud LLM. Fills fields for review; never auto-submits.
 // @author       Eesh
 // @updateURL    https://raw.githubusercontent.com/eeshsaxena/wellfound-autoanswer/master/wellfound-autoanswer.user.js
@@ -78,6 +78,8 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     set tone(v)    { GM_setValue('waa_tone', v); },
     get autorun()  { return GM_getValue('waa_autorun', false); },
     set autorun(v) { GM_setValue('waa_autorun', v); },
+    get onekey()   { return GM_getValue('waa_onekey', false); },
+    set onekey(v)  { GM_setValue('waa_onekey', v); },
   };
 
   /* ------------------------------- styling -------------------------------- */
@@ -340,11 +342,53 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
       try { await draftOne(f); done++; }
       catch (e) { if (status) status.textContent = 'Error: ' + e.message; busy = false; setButtons(false); openPanel(); return done; }
     }
-    if (status && !silent) status.textContent = `Done. Drafted ${done} answer(s). Review, edit, then submit yourself.`;
+    if (status && !silent) {
+      status.textContent = `Done. Drafted ${done} answer(s). Review` +
+        (CFG.onekey ? ', then press Ctrl+Enter to submit.' : ', edit, then submit yourself.');
+    }
     busy = false;
     setButtons(false);
+    offerSubmit();
     return done;
   }
+
+  /* ------------------------- find & confirm the Submit --------------------- */
+  function findSubmit() {
+    const cands = document.querySelectorAll('button, [role="button"], input[type="submit"], a[href]');
+    const exact = /^(submit( application| answers?)?|send application|apply now)$/i;
+    let loose = null;
+    for (const b of cands) {
+      if (b.closest('#waa-panel')) continue;
+      if (!b.offsetParent) continue;
+      if (b.disabled) continue;
+      const t = ((b.innerText || b.value || '')).replace(/\s+/g, ' ').trim();
+      if (!t || t.length > 30) continue;
+      if (exact.test(t)) return b;
+      if (!loose && /\bsubmit\b/i.test(t)) loose = b;
+    }
+    return loose;
+  }
+
+  function offerSubmit() {
+    const btn = findSubmit();
+    if (!btn) return;
+    btn.classList.add('waa-hi');
+    setTimeout(() => btn.classList.remove('waa-hi'), 2500);
+    try { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+  }
+
+  // Ctrl+Enter = submit the current application (a deliberate human keypress; one per app).
+  window.addEventListener('keydown', (e) => {
+    if (!CFG.onekey) return;
+    if (!(e.ctrlKey && e.key === 'Enter')) return;
+    const btn = findSubmit();
+    if (!btn) { const s = document.getElementById('waa-status'); if (s) s.textContent = 'No Submit button found on this page.'; return; }
+    e.preventDefault();
+    btn.classList.add('waa-hi');
+    btn.click();
+    const s = document.getElementById('waa-status');
+    if (s) s.textContent = 'Submitted (clicked "' + ((btn.innerText || btn.value || 'Submit').trim().slice(0, 24)) + '").';
+  }, true);
 
   // Manual button: (re)draft every question, overwriting existing text.
   async function draftAll() {
@@ -424,6 +468,7 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     panel.querySelector('#waa-words').value = CFG.words;
     panel.querySelector('#waa-tone').value = CFG.tone;
     panel.querySelector('#waa-autorun').checked = CFG.autorun;
+    panel.querySelector('#waa-onekey').checked = CFG.onekey;
     applyProviderUI();
     const dot = panel.querySelector('.waa-dot');
     if (CFG.provider !== 'ollama') {
@@ -472,6 +517,10 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
           <input type="checkbox" id="waa-autorun" style="width:auto;margin:0">
           Auto-draft as soon as an application page opens
         </label>
+        <label style="font-weight:600;display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer">
+          <input type="checkbox" id="waa-onekey" style="width:auto;margin:0">
+          One-key submit: press Ctrl+Enter to submit the current application
+        </label>
         <div id="waa-actions">
           <button class="waa-btn sec" id="waa-save">Save</button>
           <button class="waa-btn" id="waa-draft">✦ Draft all answers</button>
@@ -499,6 +548,7 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
       CFG.words  = parseInt(panel.querySelector('#waa-words').value) || 120;
       CFG.tone   = panel.querySelector('#waa-tone').value;
       CFG.autorun = panel.querySelector('#waa-autorun').checked;
+      CFG.onekey  = panel.querySelector('#waa-onekey').checked;
       panel.querySelector('#waa-status').textContent = 'Saved.';
       refreshPanel();
     };

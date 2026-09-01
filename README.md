@@ -66,6 +66,15 @@ answered, so it never clobbers your edits or re-runs on a field twice. You just 
 the flow; answers are already written when you get to each step. The final **Submit** is
 always yours to click.
 
+### One-key submit
+
+Tick **"One-key submit"** in settings. After the answers fill in, the page's Submit button is
+highlighted and scrolled into view, and pressing **Ctrl+Enter** clicks it — so a whole
+application becomes: open → answers fill → glance → Ctrl+Enter. It only ever fires on your
+deliberate keypress (one per application); it never submits on its own. Keep applications
+attended and go one at a time — automated *unattended* mass-submitting violates Wellfound's
+terms and risks your account.
+
 ## On "run it at a scheduled time"
 
 The script runs *inside your browser on the application page*, so it drafts the instant you
