@@ -19,9 +19,45 @@
 (function () {
   'use strict';
 
+  /* --------------------------- default background -------------------------- */
+  const DEFAULT_RESUME = `Eesh Saxena — Gandhinagar, Gujarat, India
+eeshsaxena@gmail.com | eeshsaxena.com | github.com/eeshsaxena | linkedin.com/in/eeshsaxena | leetcode.com/u/eeshsaxena
+
+EDUCATION
+Indian Institute of Information Technology Senapati, Manipur (Imphal) — B.Tech in Computer Science and Engineering, Oct 2023 – Present.
+Relevant coursework: Data Structures & Algorithms, Machine Learning, Computer Vision, Operating Systems, Database Management Systems, Computer Networks.
+
+WORK EXPERIENCE
+Research Intern, Reversible Data Hiding & Image Security — IIIT Vadodara, under Dr. Abhisek Paul (Jan 2026 – Present).
+- Studied and experimentally evaluated the Zhang (IEEE SPL 2011) framework on Reversible Data Hiding in Encrypted Images, comparing embedding strategies and reversibility guarantees.
+- Developed and tested the encryption / data-embedding / extraction process ensuring separability between data retrieval and image reconstruction.
+- Measured embedding capacity and reconstruction fidelity using PSNR and embedding-rate metrics, contributing toward publication-oriented work.
+
+Winter Research Intern, Multi-Object Tracking — IIT Tirupati (Online), SEVA Lab, under Dr. Chalavadi Vishnu (Dec 2025 – Jan 2026).
+- Reproduced and analyzed the MOTIP (CVPR 2025) framework for Multiple Object Tracking, focusing on transformer-based identity prediction without Hungarian association.
+- Examined spatio-temporal feature embeddings under occlusion and dense-scene conditions, applying temporal regularization to reduce identity switches.
+- Evaluated performance using MOTA, IDF1, and HOTA metrics after tuning optimization parameters to improve tracking stability.
+
+PROJECTS
+Conflict-Aware Graph RAG (Python, LangChain, Neo4j, Ollama, 2026): graph-based RAG pipeline converting unstructured text into structured triples with LLMs; query-aware reasoning-path retrieval over a Neo4j knowledge graph with Ref(p) scoring; entropy-based conflict module comparing parametric vs graph-augmented responses; benchmarked on multi-hop QA, reducing hallucination and improving attributability vs vector RAG.
+RajNLP-50K (Python, HuggingFace, MuRIL, 2026): building India's first open Rajasthani-Hindi code-switched NLP corpus by scraping 50,000 sentences; fine-tuned MuRIL models outperforming GPT-4o on sentiment, NER, and toxicity; extended to power BolKota, a Rajasthani voice assistant; published dataset and checkpoints on HuggingFace Hub.
+Smart Money Tracker (Python, Pandas, Plotly Dash, scikit-learn, yfinance, BeautifulSoup, 2026): scraped SEBI portfolio disclosures and AMFI NAV data to track holdings of 10+ top Indian fund managers across 25+ funds; built a Smart Money Flow Detector with conviction scoring; engineered a Fund Manager Style Fingerprint (P/E, P/B, Herfindahl, turnover) with K-Means clustering.
+
+TECHNICAL SKILLS
+Languages: C++, Python, JavaScript, PHP, SQL.
+Frameworks & Libraries: React.js, Node.js, Express.js, NumPy, Pandas, Matplotlib, PyTorch.
+Databases: MySQL, MongoDB, Supabase, Firebase.
+Tools & Platforms: Git, Postman, Linux, AWS, Railway, Vercel, Netlify.
+
+ACHIEVEMENTS (competitive programming)
+CodeChef: 4-Star (1866), Top 1% in India; Global Rank 1 in Starters 180 (Div. 3), Rank 78 in Starters 183 (Div. 2).
+Codeforces: Specialist (1582), Top 1% in India.
+LeetCode: Guardian (1873), Top 5% in World; Global Rank 75 in Weekly Contest 446.
+Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
+
   /* ----------------------------- config store ----------------------------- */
   const CFG = {
-    get resume()   { return GM_getValue('waa_resume', ''); },
+    get resume()   { return GM_getValue('waa_resume', DEFAULT_RESUME); },
     set resume(v)  { GM_setValue('waa_resume', v); },
     get model()    { return GM_getValue('waa_model', 'llama3.1'); },
     set model(v)   { GM_setValue('waa_model', v); },
