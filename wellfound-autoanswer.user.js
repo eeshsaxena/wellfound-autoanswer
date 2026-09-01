@@ -319,29 +319,37 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
   /* ------------------------------- draft flow ------------------------------ */
   let busy = false;
 
-  async function draftOne(field, statusEl) {
+  async function draftOne(field) {
     const ans = await ollamaAnswer(field.q);
     setFieldValue(field.el, ans);
+    field.el.dataset.waaDrafted = '1';
     return ans;
   }
 
-  async function draftAll() {
-    if (busy) return;
-    const fields = findFields();
+  async function draftList(fields, { silent } = {}) {
+    if (busy || !fields.length) return 0;
     const status = document.getElementById('waa-status');
-    if (!CFG.resume.trim()) { status.textContent = 'Add your resume/background in settings first.'; return; }
-    if (!fields.length) { status.textContent = 'No question fields detected on this page.'; return; }
+    if (!CFG.resume.trim()) { if (status) status.textContent = 'Add your resume/background in settings first.'; return 0; }
     busy = true;
     setButtons(true);
     let done = 0;
     for (const f of fields) {
-      status.textContent = `Drafting ${done + 1}/${fields.length}: ${f.q.slice(0, 60)}…`;
-      try { await draftOne(f, status); done++; }
-      catch (e) { status.textContent = 'Error: ' + e.message; busy = false; setButtons(false); return; }
+      if (status) status.textContent = `Drafting ${done + 1}/${fields.length}: ${f.q.slice(0, 55)}…`;
+      try { await draftOne(f); done++; }
+      catch (e) { if (status) status.textContent = 'Error: ' + e.message; busy = false; setButtons(false); openPanel(); return done; }
     }
-    status.textContent = `Done. Drafted ${done} answer(s). Review, edit, then submit yourself.`;
+    if (status && !silent) status.textContent = `Done. Drafted ${done} answer(s). Review, edit, then submit yourself.`;
     busy = false;
     setButtons(false);
+    return done;
+  }
+
+  // Manual button: (re)draft every question, overwriting existing text.
+  async function draftAll() {
+    const fields = findFields();
+    const status = document.getElementById('waa-status');
+    if (!fields.length) { if (status) status.textContent = 'No question fields detected on this page yet.'; return; }
+    await draftList(fields);
   }
 
   function setButtons(disabled) {
@@ -511,15 +519,12 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
   mo.observe(document.body, { childList: true, subtree: true });
   setTimeout(() => { decorateFields(); maybeAutoRun(); }, 800);
 
-  // Auto-draft once per page load when enabled and questions are present.
-  let autoRan = '';
+  // Auto-draft any NEW, still-blank question the moment it appears — works for
+  // full page loads, single-page navigation, and Wellfound's in-place apply modals/steps.
   function maybeAutoRun() {
-    if (!CFG.autorun || busy) return;
-    if (!CFG.resume.trim()) return;
-    const key = location.pathname;
-    if (autoRan === key) return;
-    if (!findFields().length) return;
-    autoRan = key;
-    draftAll();
+    if (!CFG.autorun || busy || !CFG.resume.trim()) return;
+    const fresh = findFields().filter(f =>
+      !f.el.dataset.waaDrafted && !f.el.value.trim());
+    if (fresh.length) draftList(fresh, { silent: false });
   }
 })();

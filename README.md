@@ -59,8 +59,12 @@ Then pick a provider in the panel:
 
 ### Hands-off mode
 
-Tick **"Auto-draft as soon as an application page opens"** in settings. Now every time you
-land on an application, it drafts automatically — no button press.
+Tick **"Auto-draft as soon as an application page opens"** in settings. Then it drafts
+automatically — no button press — the instant question boxes appear, including Wellfound's
+in-place apply pop-ups and multi-step forms. It only fills **blank** boxes it hasn't already
+answered, so it never clobbers your edits or re-runs on a field twice. You just move through
+the flow; answers are already written when you get to each step. The final **Submit** is
+always yours to click.
 
 ## On "run it at a scheduled time"
 
