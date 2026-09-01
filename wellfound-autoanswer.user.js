@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wellfound Auto-Answer (Ollama)
 // @namespace    eeshsaxena.local
-// @version      1.2.0
+// @version      1.3.0
 // @description  Draft answers to Wellfound job-application questions with a local or cloud LLM. Fills fields for review; never auto-submits.
 // @author       Eesh
 // @updateURL    https://raw.githubusercontent.com/eeshsaxena/wellfound-autoanswer/master/wellfound-autoanswer.user.js
@@ -390,11 +390,50 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
     if (s) s.textContent = 'Submitted (clicked "' + ((btn.innerText || btn.value || 'Submit').trim().slice(0, 24)) + '").';
   }, true);
 
-  // Manual button: (re)draft every question, overwriting existing text.
+  // small polling helper
+  function waitFor(fn, timeout = 10000, interval = 300) {
+    return new Promise((resolve) => {
+      const t0 = performance.now();
+      (function loop() {
+        const r = fn();
+        if (r && r.length) return resolve(r);
+        if (performance.now() - t0 > timeout) return resolve(r);
+        setTimeout(loop, interval);
+      })();
+    });
+  }
+
+  // Find the "Apply" button that opens the application form (not the final Submit).
+  function findApply() {
+    const cands = document.querySelectorAll('button, [role="button"], a[href]');
+    const rx = /^(apply on wellfound|apply now|apply)$/i;
+    for (const b of cands) {
+      if (b.closest('#waa-panel')) continue;
+      if (!b.offsetParent || b.disabled) continue;
+      const t = (b.innerText || b.value || '').replace(/\s+/g, ' ').trim();
+      if (rx.test(t)) return b;
+    }
+    return null;
+  }
+
+  // Main button: open the application if needed, then draft every question.
   async function draftAll() {
-    const fields = findFields();
+    if (busy) return;
     const status = document.getElementById('waa-status');
-    if (!fields.length) { if (status) status.textContent = 'No question fields detected on this page yet.'; return; }
+    let fields = findFields();
+    if (!fields.length) {
+      const apply = findApply();
+      if (apply) {
+        if (status) status.textContent = 'Opening application…';
+        apply.click();
+        await waitFor(() => findFields(), 10000, 300);
+        fields = findFields();
+      }
+    }
+    if (!fields.length) {
+      if (status) status.textContent = 'No application form found here. Open a job first, then click again.';
+      return;
+    }
     await draftList(fields);
   }
 
@@ -523,7 +562,7 @@ Solved 1,500+ problems across 50+ contests; 40+ repositories on GitHub.`;
         </label>
         <div id="waa-actions">
           <button class="waa-btn sec" id="waa-save">Save</button>
-          <button class="waa-btn" id="waa-draft">✦ Draft all answers</button>
+          <button class="waa-btn" id="waa-draft">✦ Apply &amp; fill</button>
         </div>
         <div id="waa-status"></div>
       </div>`;

@@ -53,9 +53,11 @@ Then pick a provider in the panel:
 1. Open any Wellfound application. A **✦ Auto-Answer** button sits in the bottom-right.
 2. First run: click it, paste your **resume / background**, set the model name (`llama3.1`),
    and Save.
-3. Click **✦ Draft all answers** — every question field gets a tailored first-person draft.
-   Or use the small **✦ draft** chip on an individual field.
-4. **Review, edit, then hit Wellfound's own Submit.** You always send it yourself.
+3. Click **✦ Apply & fill** — it clicks the page's **Apply** button to open the application
+   (if the form isn't open yet), waits for the questions to load, then drafts a tailored
+   first-person answer into each one. Or use the small **✦ draft** chip on an individual field.
+4. **Review, edit, then submit** — click Wellfound's Submit yourself, or (with one-key submit on)
+   press **Ctrl+Enter**. You always send it yourself.
 
 ### Hands-off mode
 
