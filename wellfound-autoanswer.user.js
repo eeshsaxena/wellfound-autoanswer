@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         Wellfound Auto-Answer (Ollama)
 // @namespace    eeshsaxena.local
-// @version      1.0.0
-// @description  Draft answers to Wellfound job-application questions using a local Ollama model. Fills fields for review; never auto-submits.
+// @version      1.1.0
+// @description  Draft answers to Wellfound job-application questions with a local or cloud LLM. Fills fields for review; never auto-submits.
 // @author       Eesh
+// @updateURL    https://raw.githubusercontent.com/eeshsaxena/wellfound-autoanswer/master/wellfound-autoanswer.user.js
+// @downloadURL  https://raw.githubusercontent.com/eeshsaxena/wellfound-autoanswer/master/wellfound-autoanswer.user.js
 // @match        https://wellfound.com/*
 // @match        https://*.wellfound.com/*
 // @grant        GM_xmlhttpRequest
